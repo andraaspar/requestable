@@ -1,0 +1,30 @@
+{
+	"name": "requestable",
+	"version": "0.0.1",
+	"description": "A wrapper for data to be loaded.",
+	"author": {
+		"name": "András Parditka"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/andraaspar/requestable.git"
+	},
+	"bugs": {
+		"url": "https://github.com/andraaspar/requestable/issues"
+	},
+	"homepage": "https://github.com/andraaspar/requestable#readme",
+	"devDependencies": {
+		"@types/jasmine": "^2.6.2",
+		"jasmine": "^2.8.0",
+		"rimraf": "^2.6.2",
+		"typescript": "^2.5.3"
+	},
+	"scripts": {
+		"compile": "rimraf *.js *.d.ts && tsc && yarn run test",
+		"test": "jasmine"
+	},
+	"dependencies": {
+		"illa": "^13.2.0"
+	}
+}
