@@ -91,37 +91,51 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	abstract getDefaultRequest(): RequestType
 
 	load<T extends {} = {}>(_: { request?: RequestType, noReset?: boolean, immediately?: boolean } = {}): FunQ<T> {
-		let request = _.request || this.getDefaultRequest()
-		if (!request) throw new Error('[owmzz8] No request.')
-		if (this.log) this.log('load', request, _)
-		if (_.noReset) {
-			this.abort()
-		} else {
-			this.reset()
-		}
-		this.lastRequest = request
-		if (!this.delayedLoad) {
-			switch (this.delayLoadType) {
-				case RequestableDelayLoadType.THROTTLE:
-					this.delayedLoad = throttle(this.loadInternal, this, this.delayLoadMs)
-					break
-				case RequestableDelayLoadType.DEBOUNCE:
-				default:
-					this.delayedLoad = debounce(this.loadInternal, this, this.delayLoadMs)
-					break
-			}
-		}
-		let abortableSetter = (abortable: IRequestableAbortable) => {
-			if (this.log) this.log('abortableSetter', abortable)
-			this.abortable = abortable
-			if (!_.immediately && this.delayLoadMs) {
-				this.onDelayedAbortable()
-			}
-		}
+		let request: RequestType
+		let abortableSetter: (a: IRequestableAbortable) => void
 		let resolveResponse: () => void
 		let rejectResponse: (e?: any) => void
 		return (
 			new FunQ<T & { value?: DataType }>()
+				.onSuccess(q => {
+					let requestError: any
+					let requestOrUndefined: RequestType | undefined
+					try {
+						requestOrUndefined = _.request || this.getDefaultRequest()
+					} catch (e) {
+						requestError = e
+					}
+					if (this.log) this.log('load', requestOrUndefined, _)
+					if (_.noReset) {
+						this.abort()
+					} else {
+						this.reset()
+					}
+					this.lastRequest = requestOrUndefined
+					if (requestOrUndefined) {
+						request = requestOrUndefined
+					} else {
+						throw requestError || new Error('[owmzz8] No request.')
+					}
+					if (!this.delayedLoad) {
+						switch (this.delayLoadType) {
+							case RequestableDelayLoadType.THROTTLE:
+								this.delayedLoad = throttle(this.loadInternal, this, this.delayLoadMs)
+								break
+							case RequestableDelayLoadType.DEBOUNCE:
+							default:
+								this.delayedLoad = debounce(this.loadInternal, this, this.delayLoadMs)
+								break
+						}
+					}
+					abortableSetter = (abortable: IRequestableAbortable) => {
+						if (this.log) this.log('abortableSetter', abortable)
+						this.abortable = abortable
+						if (!_.immediately && this.delayLoadMs) {
+							this.onDelayedAbortable()
+						}
+					}
+				})
 				.onSuccessAwait((q) => {
 					if (this.log) this.log('valueQ.onSuccessAwait', q.data)
 					let delayedQ: FunQ<{ value: FunQ<IRequestableResponseData<ResponseType>> }>
@@ -145,7 +159,6 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 
 										this.abortable = undefined
 										this.lastResponse = responseQ.data.response
-										this.lastLoaded = Date.now()
 
 										if (responseError) {
 											q.reject(responseError)
@@ -164,6 +177,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 				.onDone((e, q) => {
 					if (this.log) this.log('valueQ.onFinished', e, q)
 					this.lastError = e
+					this.lastLoaded = Date.now()
 
 					if (e) {
 						throw e
@@ -171,15 +185,17 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 				})
 				.onFinished((e, q) => {
 					this.lastError = e
-					
-					if (this.catchErrors) {
-						resolveResponse()
-					} else {
-						if (e) {
-							if (rejectResponse) rejectResponse(e)
-							else console.error(e)
-						} else {
+
+					if (resolveResponse) {
+						if (this.catchErrors) {
 							resolveResponse()
+						} else {
+							if (e) {
+								if (rejectResponse) rejectResponse(e)
+								else console.error(e)
+							} else {
+								resolveResponse()
+							}
 						}
 					}
 				})
@@ -277,7 +293,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	getRenderCount() {
 		return this.renderCount
 	}
-	
+
 	getName() {
 		return this.name
 	}

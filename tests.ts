@@ -1,5 +1,7 @@
 import { Requestable, IRequestableAbortable, IRequestableResponseData, IRequestableSchema } from './index'
 import { FunQ } from 'fun-q'
+import { assign } from 'illa/ObjectUtil';
+import { getIfNot } from 'illa/FunctionUtil'
 
 class R<T, Q, S> extends Requestable<T, Q, S> {
 	constructor(protected o: {
@@ -48,6 +50,18 @@ class RFails<T, Q, S> extends R<T, Q, S> {
 			.onSuccess(q => {
 				throw { toString: () => 'error' }
 			})
+	}
+}
+
+class RNoRequest<T, S> extends R<T, {}, S> {
+	constructor(o: {
+		getter: (response: S) => T
+		response: S
+	} & IRequestableSchema<T, {}, S>) {
+		super(assign({ request: {} }, o))
+	}
+	getDefaultRequest(): {} {
+		throw new Error('[oz5bhz] No default request')
 	}
 }
 
@@ -479,6 +493,67 @@ describe('Requestable', () => {
 		})
 		it('Is scheduled.', () => {
 			expect(r.isScheduled()).toBe(true)
+		})
+		it('Is not hidden and expired.', () => {
+			expect(r.isHiddenAndExpired()).toBe(false)
+		})
+	})
+	describe('No request', () => {
+		let r: RNoRequest<number, { value: number }>
+		beforeEach((done) => {
+			r = new RNoRequest({
+				response: { value: 42 },
+				getter: r => r.value,
+				delayLoadMs: 10,
+			})
+			r.load({ request: {} })
+			r.load()
+				.onError(done)
+		})
+		it('Not to throw on load()', () => {
+			expect(() => r.load()).not.toThrow()
+		})
+		it('load() returned FunQ to reject', (done) => {
+			r.load().onError(done)
+		})
+		it('Has no value.', () => {
+			expect(r.get()).toBeUndefined()
+		})
+		it('Has last error.', () => {
+			expect(r.getLastError()).toBeTruthy()
+		})
+		it('Has last error string.', () => {
+			expect(r.getLastErrorAsString()).toMatch(/oz5bhz/)
+		})
+		it('Has last loaded timestamp.', () => {
+			expect(r.getLastLoaded()).toBeGreaterThan(Date.now() - 1000)
+		})
+		it('Has no last request.', () => {
+			expect(r.getLastRequest()).toBeUndefined()
+		})
+		it('Has no last response.', () => {
+			expect(r.getLastResponse()).toBeUndefined()
+		})
+		it('Has render count 0.', () => {
+			expect(r.getRenderCount()).toBe(0)
+		})
+		it('Has error.', () => {
+			expect(r.hasError()).toBe(true)
+		})
+		it('Has not expired.', () => {
+			expect(r.hasExpired()).toBe(false)
+		})
+		it('Is not defined.', () => {
+			expect(r.isDefined()).toBe(false)
+		})
+		it('Is not loading.', () => {
+			expect(r.isLoading()).toBe(false)
+		})
+		it('Is hidden.', () => {
+			expect(r.isHidden()).toBe(true)
+		})
+		it('Is not scheduled.', () => {
+			expect(r.isScheduled()).toBe(false)
 		})
 		it('Is not hidden and expired.', () => {
 			expect(r.isHiddenAndExpired()).toBe(false)
