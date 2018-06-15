@@ -1,6 +1,6 @@
 {
 	"name": "requestable",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "A wrapper for data to be loaded.",
 	"author": {
 		"name": "András Parditka"
@@ -25,6 +25,6 @@
 		"test": "jasmine"
 	},
 	"dependencies": {
-		"illa": "^13.2.0"
+		"illa": "^14.0.0"
 	}
 }

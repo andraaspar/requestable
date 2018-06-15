@@ -44,9 +44,9 @@ glob@^7.0.5, glob@^7.0.6:
     once "^1.3.0"
     path-is-absolute "^1.0.0"
 
-illa@^13.2.0:
-  version "13.2.0"
-  resolved "https://registry.yarnpkg.com/illa/-/illa-13.2.0.tgz#1fc36015400246fa5e70dcbd64e65f873050aab1"
+illa@^14.0.0:
+  version "14.0.0"
+  resolved "https://registry.yarnpkg.com/illa/-/illa-14.0.0.tgz#a13d6775cb396ac99c12312448aab11619e1d7d9"
   dependencies:
     fun-q "^0.3.0"
 
@@ -96,8 +96,8 @@ rimraf@^2.6.2:
     glob "^7.0.5"
 
 typescript@^2.5.3:
-  version "2.5.3"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.5.3.tgz#df3dcdc38f3beb800d4bc322646b04a3f6ca7f0d"
+  version "2.9.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.9.2.tgz#1cbf61d05d6b96269244eb6a3bce4bd914e0f00c"
 
 wrappy@1:
   version "1.0.2"
