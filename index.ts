@@ -1,7 +1,7 @@
-import { FunQ } from 'fun-q'
-import { debounce, getIfNot, throttle } from 'illa/FunctionUtil'
-import { assign, findObject } from 'illa/ObjectUtil'
-import { isUndefined } from 'illa/Type'
+import { FunQ } from 'fun-q';
+import { debounce, getIfNot, throttle } from 'illa/FunctionUtil';
+import { assign, findObject } from 'illa/ObjectUtil';
+import { isUndefined } from 'illa/Type';
 
 export interface IRequestableResponseData<T> {
 	response: T
@@ -90,7 +90,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 
 	abstract getDefaultRequest(): RequestType
 
-	load<T extends {} = {}>(_: { request?: RequestType, noReset?: boolean, immediately?: boolean } = {}): FunQ<T> {
+	load<T extends {} = {}>(_: { request?: RequestType, noReset?: boolean, immediately?: boolean } = {}): FunQ<T & { value?: DataType }> {
 		let request: RequestType
 		let abortableSetter: (a: IRequestableAbortable) => void
 		let resolveResponse: () => void

@@ -1,6 +1,6 @@
 {
 	"name": "requestable",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "A wrapper for data to be loaded.",
 	"author": {
 		"name": "András Parditka"
