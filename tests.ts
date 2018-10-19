@@ -1,7 +1,9 @@
-import { Requestable, IRequestableAbortable, IRequestableResponseData, IRequestableSchema } from './index'
-import { FunQ } from 'fun-q'
-import { assign } from 'illa/ObjectUtil';
-import { getIfNot } from 'illa/FunctionUtil'
+import { FunQ } from 'fun-q';
+import { IRequestableAbortable, IRequestableResponseData, IRequestableSchema, Requestable } from './index';
+import assign = require('lodash/assign');
+
+// import failFast = require('jasmine-fail-fast');
+// jasmine.getEnv().addReporter(failFast.init());
 
 class R<T, Q, S> extends Requestable<T, Q, S> {
 	constructor(protected o: {
@@ -62,6 +64,23 @@ class RNoRequest<T, S> extends R<T, {}, S> {
 	}
 	getDefaultRequest(): {} {
 		throw new Error('[oz5bhz] No default request')
+	}
+}
+
+class RDetachable<T, Q, S> extends R<T, Q, S> {
+	detached: boolean
+	load<T2 extends {} = {}>(_: { request?: Q, noReset?: boolean, immediately?: boolean } = {}): FunQ<T2 & { value?: T }> {
+		return super.load<T2>(_)
+			.onFinished((e, q) => {
+				this.detached = false
+			})
+	}
+	detach(_: { noRecurse?: boolean } = {}) {
+		this.detached = true
+		super.detach(_)
+	}
+	isDetached() {
+		return this.detached
 	}
 }
 
@@ -557,6 +576,40 @@ describe('Requestable', () => {
 		})
 		it('Is not hidden and expired.', () => {
 			expect(r.isHiddenAndExpired()).toBe(false)
+		})
+	})
+	describe('Reset state', () => {
+		interface IValue { foo: { bar: { baz: R<number, {}, { value: number }> }[] } }
+		let r: RDetachable<IValue, {}, { value: IValue }>
+		let r2: RDetachable<number, {}, { value: number }>
+		beforeEach(() => {
+			r = new RDetachable({
+				request: {},
+				response: {
+					value: {
+						foo: {
+							bar: [
+								{
+									baz: r2 = new RDetachable({
+										request: {},
+										response: { value: 42 },
+										getter: r => r.value,
+										name: 'r2',
+									})
+								}
+							]
+						}
+					}
+				},
+				getter: r => r.value,
+				name: 'r',
+			})
+			r.load()
+			r.get()!.foo.bar[0].baz.load()
+			r.reset()
+		})
+		it('Detaches descendants.', () => {
+			expect(r2.isDetached()).toBe(true)
 		})
 	})
 })

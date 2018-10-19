@@ -1,7 +1,9 @@
 import { FunQ } from 'fun-q';
-import { debounce, getIfNot, throttle } from 'illa/FunctionUtil';
-import { assign, findObject } from 'illa/ObjectUtil';
-import { isUndefined } from 'illa/Type';
+import { getIfNot } from 'illa/FunctionUtil';
+import * as traverse from 'traverse';
+import assign = require('lodash/assign');
+import throttle = require('lodash/throttle');
+import debounce = require('lodash/debounce');
 
 export interface IRequestableResponseData<T> {
 	response: T
@@ -44,15 +46,9 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	private delayLoadMs: number = 0
 	private delayLoadType?: RequestableDelayLoadType = RequestableDelayLoadType.DEBOUNCE
 	private catchErrors?: boolean
+	private scheduled: boolean = false
 
-	private delayedLoad?: {
-		(a: (abortable: IRequestableAbortable) => any, b: RequestType): FunQ<{ value: FunQ<IRequestableResponseData<ResponseType>> }>;
-		callNow(a: (abortable: IRequestableAbortable) => any, b: RequestType): FunQ<IRequestableResponseData<ResponseType>>;
-		cancel(): void;
-		lastCalled: number;
-		timeoutRef: any;
-		isScheduled(): boolean;
-	}
+	private delayedLoad?: ((p1: (abortable: IRequestableAbortable) => any, p2: RequestType, p3: (f: FunQ<IRequestableResponseData<ResponseType>>) => void) => void) & import('lodash').Cancelable
 
 	constructor(_?: IRequestableSchema<DataType, RequestType, ResponseType>) {
 		if (_) assign(this, _)
@@ -60,6 +56,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	}
 
 	get() {
+		if (this.log) this.log('get', this.value)
 		return this.value
 	}
 
@@ -118,13 +115,20 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 						throw requestError || new Error('[owmzz8] No request.')
 					}
 					if (!this.delayedLoad) {
+						const loadAdapter = (
+							abortableSetter: (abortable: IRequestableAbortable) => any,
+							request: RequestType,
+							funQSetter: (f: FunQ<IRequestableResponseData<ResponseType>>) => void,
+						) => {
+							funQSetter(this.loadInternal(abortableSetter, request))
+						}
 						switch (this.delayLoadType) {
 							case RequestableDelayLoadType.THROTTLE:
-								this.delayedLoad = throttle(this.loadInternal, this, this.delayLoadMs)
+								this.delayedLoad = throttle(loadAdapter, this.delayLoadMs)
 								break
 							case RequestableDelayLoadType.DEBOUNCE:
 							default:
-								this.delayedLoad = debounce(this.loadInternal, this, this.delayLoadMs)
+								this.delayedLoad = debounce(loadAdapter, this.delayLoadMs)
 								break
 						}
 					}
@@ -138,15 +142,19 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 				})
 				.onSuccessAwait((q) => {
 					if (this.log) this.log('valueQ.onSuccessAwait', q.data)
-					let delayedQ: FunQ<{ value: FunQ<IRequestableResponseData<ResponseType>> }>
-					if (_.immediately) {
-						delayedQ = new FunQ<{ value: FunQ<IRequestableResponseData<ResponseType>> }>()
-							.onSuccess((q) => q.data.value = this.delayedLoad!.callNow(abortableSetter, request))
-					} else {
-						delayedQ = this.delayedLoad!(abortableSetter, request)
-					}
-					delayedQ
+					this.scheduled = true
+					new FunQ<{ value: FunQ<IRequestableResponseData<ResponseType>> }>()
+						.onSuccessAwait((q) => {
+							this.delayedLoad!(abortableSetter, request, value => {
+								q.data.value = value
+								q.resolve()
+							})
+							if (_.immediately || this.delayLoadMs === 0) {
+								this.delayedLoad!.flush()
+							}
+						})
 						.onDone((delayError, delayedQGuts) => {
+							this.scheduled = false
 							if (this.log) this.log('delayedQ.onValue')
 							if (delayError) {
 								q.reject(delayError)
@@ -175,6 +183,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 						})
 				})
 				.onDone((e, q) => {
+					this.scheduled = false
 					if (this.log) this.log('valueQ.onFinished', e, q)
 					this.lastError = e
 					this.lastLoaded = Date.now()
@@ -229,11 +238,17 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 
 	protected detachValue(_: { noRecurse?: boolean } = {}) {
 		if (!_.noRecurse && this.value) {
-			findObject<Requestable<any>>(this.value, o => o instanceof Requestable).forEach(r => r.detach({ noRecurse: true }))
+			traverse(this.value).forEach(o => {
+				if (this.log) this.log('detachValue', o)
+				if (o instanceof Requestable) {
+					o.detach({ noRecurse: true })
+				}
+			})
 		}
 	}
 
 	detach(_: { noRecurse?: boolean } = {}) {
+		if (this.log) this.log('detach', _)
 		this.abort()
 		this.detachValue({ noRecurse: _.noRecurse })
 	}
@@ -243,7 +258,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	}
 
 	isScheduled() {
-		return !!this.delayedLoad && this.delayedLoad.isScheduled()
+		return !!this.delayedLoad && this.scheduled
 	}
 
 	hasExpired() {
@@ -251,7 +266,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 	}
 
 	isDefined() {
-		return !isUndefined(this.get())
+		return typeof this.get() !== 'undefined'
 	}
 
 	isHiddenAndExpired() {
