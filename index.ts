@@ -184,7 +184,7 @@ export abstract class Requestable<DataType, RequestType = any, ResponseType = an
 				})
 				.onDone((e, q) => {
 					this.scheduled = false
-					if (this.log) this.log('valueQ.onFinished', e, q)
+					if (this.log) this.log('valueQ.onDone', e, q)
 					this.lastError = e
 					this.lastLoaded = Date.now()
 

@@ -1,6 +1,6 @@
 {
 	"name": "requestable",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "A wrapper for data to be loaded.",
 	"author": {
 		"name": "András Parditka"
@@ -29,7 +29,7 @@
 	},
 	"dependencies": {
 		"fun-q": "^0.3.1",
-		"illa": "^15.0.0",
+		"illa": "^16.0.0",
 		"lodash": "^4.17.11",
 		"traverse": "^0.6.6"
 	}
